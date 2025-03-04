@@ -1,10 +1,10 @@
-# Collector Split Tool
+# Tezos Collector Split Tool
 
 A tool for managing and calculating collector splits for NFT projects on Tezos.
 
 ## Live Demo
 
-🚀 Try the app here: [Collector Split Tool](https://collector-split-tool.vercel.app/)
+🚀 Try the app here: [Tezos Collector Split Tool](https://collector-split-tool.vercel.app/)
 
 ## Features
 
