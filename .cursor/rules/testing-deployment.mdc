@@ -1,0 +1,8 @@
+---
+description: Run all minting transactions on Ghostnet before mainnet deployment. Validate metadata using OBJKT’s metadata validator before finalizing. Ensure contract calls return expected storage values after minting.
+globs: *.ts, *.tsx, test-utils.ts
+alwaysApply: false
+---
+Run all minting transactions on Ghostnet before mainnet deployment.
+Validate metadata using OBJKT’s metadata validator before finalizing.
+Ensure contract calls return expected storage values after minting.

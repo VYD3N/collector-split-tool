@@ -1,0 +1,8 @@
+---
+description: All API requests must use async/await with try/catch for error handling. Implement exponential backoff for failed requests. Log TzKT API failures with timestamps and request details.
+globs: *.ts, *.tsx, api-service.ts
+alwaysApply: false
+---
+All API requests must use async/await with try/catch for error handling.
+Implement exponential backoff for failed requests.
+Log TzKT API failures with timestamps and request details.

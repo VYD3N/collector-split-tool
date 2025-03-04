@@ -1,0 +1,15 @@
+{
+  "name": "collector-split-tool",
+  "version": "1.0.0",
+  "description": "Tool for managing NFT collector splits on Tezos",
+  "scripts": {
+    "start": "cd frontend && npm start",
+    "build": "cd frontend && npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "react-app-rewired": "^2.2.1"
+  }
+}

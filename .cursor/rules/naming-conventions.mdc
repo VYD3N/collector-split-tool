@@ -1,0 +1,9 @@
+---
+description: Use camelCase for variables and functions. Use PascalCase for React components and classes. Constants should be in UPPER_SNAKE_CASE. File names should be kebab-case (e.g., transaction-monitor.tsx).
+globs: *.tsx, *.ts, *.js
+alwaysApply: false
+---
+Use camelCase for variables and functions.  
+Use PascalCase for React components and classes.  
+Constants should be in UPPER_SNAKE_CASE.  
+File names should follow kebab-case (e.g., `transaction-monitor.tsx`). 

@@ -1,0 +1,8 @@
+---
+description: Display real-time transaction status (pending, confirmed, failed). Always provide user feedback after a successful mint or split update. Ensure all form inputs validate user data before submitting transactions.
+globs: *.tsx, *.ts, *.js
+alwaysApply: false
+---
+Display real-time transaction status (pending, confirmed, failed).
+Always provide user feedback after a successful mint or split update.
+Ensure all form inputs validate user data before submitting transactions.

@@ -1,0 +1,8 @@
+---
+description: Primary IPFS CID should be from Pinata, with NFT.Storage CID as a backup. All uploaded files must return a valid CID before minting begins. Ensure metadata follows OBJKT’s TZIP-21 standard.
+globs: *.ts, metadata.ts
+alwaysApply: false
+---
+Primary IPFS CID should be from Pinata, with NFT.Storage CID as a backup.
+All uploaded files must return a valid CID before minting begins.
+Ensure metadata follows OBJKT’s TZIP-21 standard.

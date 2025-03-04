@@ -1,0 +1,95 @@
+collector-split-tool/
+│── backend/                  # Backend services
+│   │── api/                   # API handlers
+│   │   │── collectors.py      # Fetches collector data
+│   │   │── minting.py         # Handles smart contract interactions
+│   │   │── auth.py            # Manages wallet authentication
+│   │── config/                # Configuration files
+│   │   │── settings.py        # General settings (API keys, contract addresses)
+│   │   │── env.example        # Environment variable example file
+│   │── tests/                 # Backend unit tests
+│   │   │── test_api.py        # Tests API responses
+│   │   │── test_contract.py   # Tests smart contract functions
+│   │── server.py              # Main backend server entry point
+│
+│── frontend/                 # Frontend application
+│   │── src/                   # Source code
+│   │   │── components/        # UI components
+│   │   │── pages/             # Application pages
+│   │   │── utils/             # Helper functions
+│   │   │── App.js             # Main React/Vue entry
+│   │   │── index.js           # Application entry
+│   │── public/                # Public assets (icons, images)
+│   │── package.json           # Frontend dependencies
+│
+│── contracts/                # Smart contract interactions
+│   │── scripts/               # Deployment & interaction scripts
+│   │   │── mint_with_splits.py # Handles dynamic minting
+│   │── contract.json          # Smart contract ABI
+│
+│── docs/                     # Documentation
+│   │── README.md              # Project overview
+│   │── API_REFERENCE.md       # API documentation
+│   │── DEV_NOTES.md           # Notes for developers
+│
+│── scripts/                   # Utility scripts
+│   │── setup_env.sh           # Automates environment setup
+│   │── data_fetch.py          # Fetches and preprocesses collector data
+│
+│── .gitignore                 # Git ignore file
+│── requirements.txt           # Python dependencies
+│── package.json               # Node dependencies (if needed)
+│── LICENSE                    # Project license
+│── README.md                  # High-level project documentation
+
+
+📌 Directory Breakdown
+
+1️⃣ Backend (backend/)
+
+Handles collector ranking, contract interactions, authentication.
+
+api/ – Contains API handlers for OBJKT.com and Tezos blockchain.
+
+config/ – Stores settings, contract addresses, API keys.
+
+tests/ – Backend testing scripts.
+
+server.py – Main API server entry point (Flask/FastAPI/Express.js).
+
+2️⃣ Frontend (frontend/)
+
+React/Vue UI for ranking, previewing splits, minting NFTs.
+
+components/ – Reusable UI components.
+
+pages/ – Pages like Dashboard, Settings, Mint.
+
+utils/ – Helper functions (API calls, formatting).
+
+3️⃣ Smart Contracts (contracts/)
+
+Scripts to interact with OBJKT.com Open Edition contracts.
+
+mint_with_splits.py – Handles minting NFTs with dynamic splits.
+
+4️⃣ Documentation (docs/)
+
+README.md – High-level overview.
+
+API_REFERENCE.md – Explains API endpoints.
+
+DEV_NOTES.md – Notes on how to extend/modify the project.
+
+5️⃣ Scripts (scripts/)
+
+setup_env.sh – Automates environment setup.
+
+data_fetch.py – Fetches collector data from OBJKT API.
+
+📌 Next Steps
+
+1️⃣ Pre-create directories as listed above.
+2️⃣ Add placeholder files where needed (e.g., README.md, server.py).
+3️⃣ Ensure env.example exists for API keys & settings.
+4️⃣ Keep this document updated as development progresses.

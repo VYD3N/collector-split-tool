@@ -1,0 +1,8 @@
+---
+description: Royalty splits must be stored inside the token metadata ("royalties": {...}). Ensure total split percentage does not exceed 10%. Remove collectors whose share rounds to 0%.
+globs: *.ts, royalty-calculations.ts
+alwaysApply: false
+---
+Royalty splits must be stored inside the token metadata ("royalties": {...}).
+Ensure total split percentage does not exceed 10%.
+Remove collectors whose share rounds to 0%.

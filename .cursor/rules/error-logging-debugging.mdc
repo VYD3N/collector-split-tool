@@ -1,0 +1,9 @@
+---
+description: Log all Tezos RPC & API failures in a centralized error handler. Use Sentry or another logging service for error tracking. Include timestamp, request type, and failing endpoint in error logs.
+globs: *.ts, logger.ts, error-handler.ts
+alwaysApply: false
+---
+
+Log all Tezos RPC & API failures in a centralized error handler.
+Use Sentry or another logging service for error tracking.
+Include timestamp, request type, and failing endpoint in error logs.

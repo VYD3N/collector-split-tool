@@ -1,0 +1,49 @@
+{
+    "name": "OBJKT Open Edition Contract",
+    "version": "1.0.0",
+    "description": "Smart contract interface for OBJKT.com Open Edition with split functionality",
+    "contractAddress": "KT1JtUU7d1boS9WVHu2B2obTE4gdX2uyFMVq",
+    "entrypoints": {
+        "mint": {
+            "parameters": {
+                "amount": "nat",
+                "splits": {
+                    "type": "list",
+                    "items": {
+                        "type": "pair",
+                        "items": [
+                            {"name": "address", "type": "address"},
+                            {"name": "shares", "type": "nat"}
+                        ]
+                    }
+                }
+            }
+        },
+        "update_operators": {
+            "parameters": {
+                "type": "list",
+                "items": {
+                    "type": "or",
+                    "items": [
+                        {
+                            "name": "add_operator",
+                            "parameters": {
+                                "owner": "address",
+                                "operator": "address",
+                                "token_id": "nat"
+                            }
+                        },
+                        {
+                            "name": "remove_operator",
+                            "parameters": {
+                                "owner": "address",
+                                "operator": "address",
+                                "token_id": "nat"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
