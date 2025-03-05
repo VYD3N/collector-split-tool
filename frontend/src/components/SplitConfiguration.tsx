@@ -299,8 +299,17 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
         // Calculate how much share is needed to bring below-threshold collectors up to 0.1%
         const shareNeeded = belowThreshold.reduce((sum, c) => sum + (MIN_SHARE - (c.share || 0)), 0);
         
+        // Sort collectors by score (or position if scores are equal)
+        const sortedCollectors = [...selectedCollectors].sort((a, b) => {
+            if (b.score === a.score) {
+                // If scores are equal, use their position in the array
+                return selectedCollectors.indexOf(a) - selectedCollectors.indexOf(b);
+            }
+            return (b.score || 0) - (a.score || 0);
+        });
+        
         // Find collectors above threshold to redistribute from
-        const aboveThreshold = selectedCollectors.filter(c => (c.share || 0) > MIN_SHARE);
+        const aboveThreshold = sortedCollectors.filter(c => (c.share || 0) > MIN_SHARE);
         
         if (aboveThreshold.length === 0) {
             toast({
@@ -313,40 +322,73 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
             return;
         }
         
-        // Calculate total share of above-threshold collectors
-        const aboveThresholdTotal = aboveThreshold.reduce((sum, c) => sum + (c.share || 0), 0);
+        // Calculate total "weight" based on position (higher positions have more weight)
+        let totalWeight = 0;
+        const collectorsWithWeights = aboveThreshold.map((collector, index) => {
+            // Reverse the index so higher positions get higher weights
+            const weight = aboveThreshold.length - index;
+            totalWeight += weight;
+            return { ...collector, weight };
+        });
         
-        // Create new collectors list with adjusted shares
-        const newCollectors = [...selectedCollectors].map(collector => {
+        // Create mapping from address to reduction amount
+        const reductionMap = new Map<string, number>();
+        
+        // Calculate reduction for each collector above threshold based on weighted position
+        collectorsWithWeights.forEach(collector => {
+            const reductionFactor = collector.weight / totalWeight;
+            const reduction = shareNeeded * reductionFactor;
+            const share = collector.share || 0;
+            
+            // Ensure we don't reduce below minimum threshold
+            const maxReduction = share - MIN_SHARE;
+            const actualReduction = Math.min(reduction, maxReduction);
+            
+            reductionMap.set(collector.address, actualReduction);
+        });
+        
+        // Apply reductions and adjust collectors below threshold
+        const newCollectors = selectedCollectors.map(collector => {
             const share = collector.share || 0;
             
             if (share < MIN_SHARE) {
                 // Bring up to minimum threshold
                 return { ...collector, share: MIN_SHARE };
-            } else if (share > MIN_SHARE) {
-                // Reduce proportionally
-                const reduction = (share / aboveThresholdTotal) * shareNeeded;
-                const newShare = Math.max(MIN_SHARE, share - reduction);
+            } else if (reductionMap.has(collector.address)) {
+                // Apply the calculated reduction
+                const reduction = reductionMap.get(collector.address) || 0;
+                const newShare = share - reduction;
                 return { ...collector, share: Number(newShare.toFixed(2)) };
             }
             
             return collector;
         });
         
-        // Ensure total matches exactly by adjusting the highest share
+        // Ensure total matches exactly by adjusting shares proportionally if needed
         const newTotal = newCollectors.reduce((sum, c) => sum + (c.share || 0), 0);
         const difference = collectorTotalShare - newTotal;
         
         if (Math.abs(difference) > 0.01) {
-            // Find collector with highest share
-            const sortedCollectors = [...newCollectors].sort((a, b) => (b.share || 0) - (a.share || 0));
-            const highestIndex = newCollectors.findIndex(c => c.address === sortedCollectors[0].address);
+            // Find collectors with more than minimum share
+            const adjustableCollectors = newCollectors.filter(c => (c.share || 0) > MIN_SHARE);
             
-            if (highestIndex !== -1) {
-                newCollectors[highestIndex] = {
-                    ...newCollectors[highestIndex],
-                    share: Number(((newCollectors[highestIndex].share || 0) + difference).toFixed(2))
-                };
+            if (adjustableCollectors.length > 0) {
+                // Calculate total adjustable share
+                const adjustableTotal = adjustableCollectors.reduce((sum, c) => sum + ((c.share || 0) - MIN_SHARE), 0);
+                
+                // Apply proportional adjustment
+                newCollectors.forEach((collector, index) => {
+                    const share = collector.share || 0;
+                    if (share > MIN_SHARE) {
+                        const adjustablePortion = share - MIN_SHARE;
+                        const adjustmentFactor = adjustablePortion / adjustableTotal;
+                        const adjustment = difference * adjustmentFactor;
+                        newCollectors[index] = {
+                            ...collector,
+                            share: Number((share + adjustment).toFixed(2))
+                        };
+                    }
+                });
             }
         }
         
@@ -355,7 +397,7 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
         
         toast({
             title: 'Shares Adjusted',
-            description: 'All collectors now have at least 0.1% share (OBJKT minimum). Percentages have been adjusted proportionally.',
+            description: 'All collectors now have at least 0.1% share (OBJKT minimum). Percentages have been adjusted based on collector ranking.',
             status: 'warning',
             duration: 5000,
             isClosable: true,
