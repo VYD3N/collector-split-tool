@@ -65,7 +65,7 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
     // Constants for validation
     const MIN_COLLECTORS = 3;
     const MAX_COLLECTORS = 1000;
-    const MIN_SHARE = 0.1; // 0.1%
+    const MIN_SHARE = 0.1; // 0.1% - OBJKT's minimum threshold
     const MAX_SHARE = 50.0; // 50%
     const MIN_TOTAL_SHARE = 0.0; // Minimum total share percentage
     const MAX_TOTAL_SHARE = 25.0; // Maximum total share percentage
@@ -279,12 +279,118 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
 
     // Add a function to handle allowing low shares
     const handleAllowLowShares = () => {
-        // Set the minimum share threshold to 0
-        setCurrentMinShare(0);
+        // Keep the minimum share at OBJKT's 0.1% threshold
+        setCurrentMinShare(MIN_SHARE);
+        
+        // Get collectors who have shares below the threshold
+        const belowThreshold = selectedCollectors.filter(c => (c.share || 0) < MIN_SHARE);
+        
+        if (belowThreshold.length === 0) {
+            toast({
+                title: 'No Action Needed',
+                description: 'All collectors already have shares of 0.1% or higher',
+                status: 'info',
+                duration: 2000,
+                isClosable: true,
+            });
+            return;
+        }
+        
+        // Calculate how much share is needed to bring below-threshold collectors up to 0.1%
+        const shareNeeded = belowThreshold.reduce((sum, c) => sum + (MIN_SHARE - (c.share || 0)), 0);
+        
+        // Find collectors above threshold to redistribute from
+        const aboveThreshold = selectedCollectors.filter(c => (c.share || 0) > MIN_SHARE);
+        
+        if (aboveThreshold.length === 0) {
+            toast({
+                title: 'Cannot Adjust',
+                description: 'No collectors with shares above 0.1% to redistribute from',
+                status: 'error',
+                duration: 3000,
+                isClosable: true,
+            });
+            return;
+        }
+        
+        // Calculate total share of above-threshold collectors
+        const aboveThresholdTotal = aboveThreshold.reduce((sum, c) => sum + (c.share || 0), 0);
+        
+        // Create new collectors list with adjusted shares
+        const newCollectors = [...selectedCollectors].map(collector => {
+            const share = collector.share || 0;
+            
+            if (share < MIN_SHARE) {
+                // Bring up to minimum threshold
+                return { ...collector, share: MIN_SHARE };
+            } else if (share > MIN_SHARE) {
+                // Reduce proportionally
+                const reduction = (share / aboveThresholdTotal) * shareNeeded;
+                const newShare = Math.max(MIN_SHARE, share - reduction);
+                return { ...collector, share: Number(newShare.toFixed(2)) };
+            }
+            
+            return collector;
+        });
+        
+        // Ensure total matches exactly by adjusting the highest share
+        const newTotal = newCollectors.reduce((sum, c) => sum + (c.share || 0), 0);
+        const difference = collectorTotalShare - newTotal;
+        
+        if (Math.abs(difference) > 0.01) {
+            // Find collector with highest share
+            const sortedCollectors = [...newCollectors].sort((a, b) => (b.share || 0) - (a.share || 0));
+            const highestIndex = newCollectors.findIndex(c => c.address === sortedCollectors[0].address);
+            
+            if (highestIndex !== -1) {
+                newCollectors[highestIndex] = {
+                    ...newCollectors[highestIndex],
+                    share: Number(((newCollectors[highestIndex].share || 0) + difference).toFixed(2))
+                };
+            }
+        }
+        
+        setSelectedCollectors(newCollectors);
+        calculateRemainingShare(newCollectors);
         
         toast({
-            title: 'Low Shares Allowed',
-            description: `All collectors will be kept, regardless of share percentage`,
+            title: 'Shares Adjusted',
+            description: 'All collectors now have at least 0.1% share (OBJKT minimum). Percentages have been adjusted proportionally.',
+            status: 'warning',
+            duration: 5000,
+            isClosable: true,
+        });
+    };
+
+    const handleRemoveBelowThreshold = () => {
+        // Count how many would be removed (below 0.1%)
+        const belowThreshold = selectedCollectors.filter(c => (c.share || 0) < MIN_SHARE);
+        const remainingCount = selectedCollectors.length - belowThreshold.length;
+        
+        // Check if removing would violate minimum collectors requirement
+        if (remainingCount < MIN_COLLECTORS) {
+            toast({
+                title: 'Cannot Remove',
+                description: `Removing these collectors would leave fewer than the minimum ${MIN_COLLECTORS} required collectors`,
+                status: 'error',
+                duration: 3000,
+                isClosable: true,
+            });
+            return;
+        }
+        
+        // Remove collectors below threshold (0.1%)
+        const filteredCollectors = selectedCollectors.filter(c => (c.share || 0) >= MIN_SHARE);
+        
+        // Recalculate shares for remaining collectors
+        const updatedCollectors = calculateWeightedShares(filteredCollectors, collectorTotalShare);
+        
+        setSelectedCollectors(updatedCollectors);
+        calculateRemainingShare(updatedCollectors);
+        
+        toast({
+            title: 'Collectors Removed',
+            description: `Removed ${belowThreshold.length} collectors with shares below ${MIN_SHARE}% (OBJKT minimum)`,
             status: 'success',
             duration: 2000,
             isClosable: true,
@@ -401,41 +507,6 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
                 isClosable: true,
             });
         }
-    };
-
-    const handleRemoveBelowThreshold = () => {
-        // Count how many would be removed
-        const belowThreshold = selectedCollectors.filter(c => (c.share || 0) < currentMinShare);
-        const remainingCount = selectedCollectors.length - belowThreshold.length;
-        
-        // Check if removing would violate minimum collectors requirement
-        if (remainingCount < MIN_COLLECTORS) {
-            toast({
-                title: 'Cannot Remove',
-                description: `Removing these collectors would leave fewer than the minimum ${MIN_COLLECTORS} required collectors`,
-                status: 'error',
-                duration: 3000,
-                isClosable: true,
-            });
-            return;
-        }
-        
-        // Remove collectors below threshold
-        const filteredCollectors = selectedCollectors.filter(c => (c.share || 0) >= currentMinShare);
-        
-        // Recalculate shares for remaining collectors
-        const updatedCollectors = calculateWeightedShares(filteredCollectors, collectorTotalShare);
-        
-        setSelectedCollectors(updatedCollectors);
-        calculateRemainingShare(updatedCollectors);
-        
-        toast({
-            title: 'Collectors Removed',
-            description: `Removed ${belowThreshold.length} collectors with shares below ${currentMinShare}%`,
-            status: 'success',
-            duration: 2000,
-            isClosable: true,
-        });
     };
 
     // Modify getShareColor to use currentMinShare
@@ -846,19 +917,19 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
                                             <HStack>
                                                 <Button
                                                     leftIcon={<WarningIcon />}
-                                                    colorScheme="orange"
+                                                    colorScheme="red"
                                                     onClick={handleRemoveBelowThreshold}
                                                     isDisabled={selectedCollectors.length - countBelowThreshold < MIN_COLLECTORS}
-                                                    title={`Remove ${countBelowThreshold} collectors with shares below ${currentMinShare}%`}
+                                                    title="Remove all collectors with shares below 0.1% (OBJKT minimum)"
                                                 >
-                                                    Remove {countBelowThreshold} Low Share
+                                                    Remove {countBelowThreshold} Below 0.1%
                                                 </Button>
                                                 <Button
                                                     colorScheme="teal"
                                                     onClick={handleAllowLowShares}
-                                                    title="Keep all collectors even with very small shares"
+                                                    title="Adjust shares so all collectors have at least 0.1% (OBJKT minimum)"
                                                 >
-                                                    Allow Low Share
+                                                    Adjust to 0.1% Minimum
                                                 </Button>
                                             </HStack>
                                         )}
