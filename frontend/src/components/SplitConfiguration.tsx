@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     VStack,
@@ -77,10 +77,98 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
     // Fix the creatorAddress state by making it optional and using the prop value
     const [localCreatorAddress, setLocalCreatorAddress] = useState<string | null>(creatorAddress || null);
 
-    // Calculate weighted shares based on collector scores
-    const calculateWeightedShares = (collectors: Collector[], totalSharePercentage: number): Collector[] => {
+    // First declare balanceShares
+    const balanceShares = useCallback((collectors: Collector[], targetTotal: number): Collector[] => {
+        if (collectors.length === 0) return collectors;
+
+        // Calculate current total with rounded values
+        const currentTotal = collectors.reduce((sum, c) => sum + (c.share || 0), 0);
+        let difference = Number((targetTotal - currentTotal).toFixed(2));
+
+        // If difference is negligible, return as is
+        if (Math.abs(difference) < 0.01) return collectors;
+
+        // Make a copy of collectors to modify
+        let result = [...collectors];
+        
+        // Group collectors by their current share value
+        const shareGroups = new Map<number, Collector[]>();
+        result.forEach(collector => {
+            const share = collector.share || 0;
+            if (!shareGroups.has(share)) {
+                shareGroups.set(share, []);
+            }
+            shareGroups.get(share)?.push(collector);
+        });
+
+        // Find the highest share group that has enough collectors to distribute the difference
+        const sortedShares = Array.from(shareGroups.keys()).sort((a, b) => b - a);
+        let targetGroup: Collector[] | undefined;
+        let targetShare: number | undefined;
+
+        for (const share of sortedShares) {
+            const group = shareGroups.get(share);
+            if (group && group.length >= Math.ceil(Math.abs(difference) / 0.01)) {
+                targetGroup = group;
+                targetShare = share;
+                break;
+            }
+        }
+
+        if (targetGroup && targetShare !== undefined) {
+            // Calculate how many collectors need to receive 0.01
+            const adjustmentsNeeded = Math.ceil(Math.abs(difference) / 0.01);
+            const adjustmentPerCollector = 0.01;
+            
+            // Apply adjustments to the target group
+            for (let i = 0; i < adjustmentsNeeded && i < targetGroup.length; i++) {
+                const collector = targetGroup[i];
+                if (!collector) continue;
+                
+                const collectorIndex = result.findIndex(c => c.address === collector.address);
+                if (collectorIndex !== -1) {
+                    result[collectorIndex] = {
+                        ...result[collectorIndex],
+                        share: Number((targetShare + adjustmentPerCollector).toFixed(2))
+                    };
+                }
+            }
+        } else {
+            // Fallback to original logic if we can't find a suitable group
+            const numToAdjust = Math.abs(difference) > 0.01 ? 2 : 1;
+            const lastCollectors = result.slice(-numToAdjust);
+            const adjustmentPerCollector = Number((difference / numToAdjust).toFixed(2));
+            
+            lastCollectors.forEach((collector, index) => {
+                const isLastOne = index === lastCollectors.length - 1;
+                const adjustment = isLastOne ? 
+                    difference : // Last collector gets remaining difference
+                    adjustmentPerCollector; // Others get equal share
+                
+                const collectorIndex = result.length - numToAdjust + index;
+                result[collectorIndex] = {
+                    ...collector,
+                    share: Number(((collector.share || 0) + adjustment).toFixed(2))
+                };
+                
+                difference = Number((difference - adjustment).toFixed(2));
+            });
+        }
+
+        return result;
+    }, []);
+
+    // Then declare calculateRemainingShare
+    const calculateRemainingShare = useCallback((splits: Collector[]) => {
+        const usedShare = splits.reduce((sum, c) => sum + (c.share || 0), 0);
+        const remaining = Number((collectorTotalShare - usedShare).toFixed(4));
+        setRemainingShare(remaining);
+    }, [collectorTotalShare]);
+
+    // Then declare calculateWeightedShares with proper dependencies
+    const calculateWeightedShares = useCallback((inputCollectors: Collector[], totalSharePercentage: number): Collector[] => {
         // Filter out the creator and burn address
-        const validCollectors = collectors.filter(c => 
+        const validCollectors = inputCollectors.filter(c => 
             (localCreatorAddress ? c.address !== localCreatorAddress : true) && 
             c.address !== BURN_ADDRESS
         );
@@ -145,137 +233,40 @@ export const SplitConfiguration: React.FC<SplitConfigurationProps> = ({
         
         // Balance the shares to match total exactly
         return balanceShares(result, totalSharePercentage);
-    };
+    }, [localCreatorAddress, BURN_ADDRESS, balanceShares]);
 
-    // Add new function to balance shares
-    const balanceShares = (collectors: Collector[], targetTotal: number): Collector[] => {
-        if (collectors.length === 0) return collectors;
-
-        // Calculate current total with rounded values
-        const currentTotal = collectors.reduce((sum, c) => sum + (c.share || 0), 0);
-        let difference = Number((targetTotal - currentTotal).toFixed(2));
-
-        // If difference is negligible, return as is
-        if (Math.abs(difference) < 0.01) return collectors;
-
-        // Make a copy of collectors to modify
-        let result = [...collectors];
-        
-        // If we're allowing low shares (currentMinShare === 0), handle differently
-        if (currentMinShare === 0) {
-            // Sort by share value descending
-            result.sort((a, b) => (b.share || 0) - (a.share || 0));
-            
-            // Calculate minimum viable share (the share that would result in 0.01% after adjustment)
-            const minViableShare = Math.abs(difference) / result.length;
-            
-            // Remove collectors that would end up with less than 0.01% after adjustment
-            while (result.length > MIN_COLLECTORS) {
-                const wouldBeNegative = result.some((c, i) => {
-                    const share = c.share || 0;
-                    const adjustment = difference / result.length;
-                    return share + adjustment < 0.01;
-                });
-                
-                if (!wouldBeNegative) break;
-                
-                // Remove the collector with the lowest share
-                result = result.slice(0, -1);
-                
-                // Recalculate difference for remaining collectors
-                const newTotal = result.reduce((sum, c) => sum + (c.share || 0), 0);
-                difference = Number((targetTotal - newTotal).toFixed(2));
-            }
-            
-            // Now distribute the difference among remaining collectors
-            const adjustmentPerCollector = Number((difference / result.length).toFixed(2));
-            result = result.map(collector => ({
-                ...collector,
-                share: Number(((collector.share || 0) + adjustmentPerCollector).toFixed(2))
-            }));
-            
-            // Handle any remaining small difference due to rounding
-            const finalTotal = result.reduce((sum, c) => sum + (c.share || 0), 0);
-            const remainingDiff = Number((targetTotal - finalTotal).toFixed(2));
-            if (Math.abs(remainingDiff) >= 0.01 && result.length > 0) {
-                const lastCollector = result[result.length - 1];
-                const lastCollectorShare = lastCollector.share || 0;
-                result[result.length - 1] = {
-                    ...lastCollector,
-                    share: Number((lastCollectorShare + remainingDiff).toFixed(2))
-                };
-            }
-            
-            return result;
-        }
-        
-        // Original logic for when we're not allowing low shares
-        const numToAdjust = Math.abs(difference) > 0.01 ? 2 : 1;
-        const lastCollectors = result.slice(-numToAdjust);
-        const adjustmentPerCollector = Number((difference / numToAdjust).toFixed(2));
-        
-        lastCollectors.forEach((collector, index) => {
-            const isLastOne = index === lastCollectors.length - 1;
-            const adjustment = isLastOne ? 
-                difference : // Last collector gets remaining difference
-                adjustmentPerCollector; // Others get equal share
-            
-            const collectorIndex = result.length - numToAdjust + index;
-            result[collectorIndex] = {
-                ...collector,
-                share: Number(((collector.share || 0) + adjustment).toFixed(2))
-            };
-            
-            difference = Number((difference - adjustment).toFixed(2));
-        });
-
-        return result;
-    };
-
+    // First useEffect for creator address
     useEffect(() => {
-        // First check if a creator address was passed as prop
         if (creatorAddress) {
             setLocalCreatorAddress(creatorAddress);
-        }
-        // Otherwise identify the creator (assumed to be top-scoring collector)
-        else if (collectors.length > 0) {
+        } else if (collectors.length > 0) {
             const creatorCollector = [...collectors]
                 .filter(c => c.address !== BURN_ADDRESS)
                 .sort((a, b) => b.score - a.score)[0];
             setLocalCreatorAddress(creatorCollector.address);
         }
-    }, [collectors, creatorAddress]);
+    }, [collectors, creatorAddress, BURN_ADDRESS]);
 
+    // Second useEffect for initialization
     useEffect(() => {
-        // Initialize with all available collectors up to MAX_COLLECTORS
         if (collectors.length > 0) {
-            // First, identify the creator (assumed to be top-scoring collector)
             const creatorCollector = [...collectors]
                 .filter(c => c.address !== BURN_ADDRESS)
                 .sort((a, b) => b.score - a.score)[0];
             
-            // Filter out the creator and burn address from the list of collectors
             const validCollectors = collectors.filter(c => 
                 c.address !== creatorCollector.address && 
                 c.address !== BURN_ADDRESS
             );
             
-            // Use all collectors up to MAX_COLLECTORS
             const initialCount = Math.min(validCollectors.length, MAX_COLLECTORS);
             const initialCollectors = validCollectors.slice(0, initialCount);
             
-            // Calculate weighted shares based on scores
             const collectorsWithShares = calculateWeightedShares(initialCollectors, collectorTotalShare);
             setSelectedCollectors(collectorsWithShares);
             calculateRemainingShare(collectorsWithShares);
         }
-    }, [collectors, collectorTotalShare]);
-
-    const calculateRemainingShare = (splits: Collector[]) => {
-        const usedShare = splits.reduce((sum, c) => sum + (c.share || 0), 0);
-        const remaining = Number((collectorTotalShare - usedShare).toFixed(4));
-        setRemainingShare(remaining);
-    };
+    }, [collectors, collectorTotalShare, calculateWeightedShares, calculateRemainingShare, BURN_ADDRESS]);
 
     // Add a function to handle allowing low shares
     const handleAllowLowShares = () => {
